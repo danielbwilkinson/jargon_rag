@@ -169,16 +169,15 @@ def ask_jeeves(context, query, message_history):
 
     system_prompt = """
 You are a content filter in a RAG pipeline for an assistant to a penetration tester conducting security assessments. Consider the following message history, and user query. You will be given a list of documents that are available to assist you while responding to the query.
-Your task is to return a valid JSON object containing a list of available document titles, which would be useful when answering the user's query.
-First, repeat all of the available document titles, adding 'yes' or 'no' to note whether it would be of use. Your response should then include a valid JSON object with the following structure containing the titles marked as useful:
+Your task is to first repeat all of the available document titles, adding 'yes' or 'no' at the end of the line to note whether it would be of use when answering the user's query. Your response should then include a valid JSON object with the following structure containing the titles marked as useful:
 
-{{
+{
     "context":[
         "document_1",
         "document_2",
        ...
     ]
-}}
+}
 """
 
 #    system_prompt = """
@@ -227,8 +226,10 @@ First, repeat all of the available document titles, adding 'yes' or 'no' to note
         for j in response_json:
             try:
                 response_obj = json.loads(j)
-            except ValueError as e:
+                new_context = new_context + response_obj['context']
+            except (ValueError, KeyError) as e:
                 response_obj = {'context': []}
+                new_context = new_context + response_obj['context']
                 if DEBUG:
                     print(f"FAILED TO PARSE LLM RESPONSE: {j}")
             if DEBUG:
@@ -236,7 +237,6 @@ First, repeat all of the available document titles, adding 'yes' or 'no' to note
                 print()
                 print(f"LLM choices attempt {i}: {response_obj}")
                 print()
-            new_context = new_context + response_obj['context']
 
     if len(new_context) > 0:
         # remove duplicates
