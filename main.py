@@ -11,7 +11,7 @@ NEO4J_URI = config['DEFAULT']['NEO4J_URI']
 NEO4J_USER = config['DEFAULT']['NEO4J_USER']
 NEO4J_PASS = config['DEFAULT']['NEO4J_PASS']
 
-DEBUG = bool(config['DEFAULT']['DEBUG'])
+DEBUG = config.getboolean('DEFAULT', 'DEBUG')
 
 MODEL = config['DEFAULT']['MODEL']
 CONTEXT_WINDOW = int(config['DEFAULT']['MODEL_CONTEXT_WINDOW'])
