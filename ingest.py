@@ -75,18 +75,43 @@ def create_nodes(gdb: GraphDatabase):
 
 
 def upload_file(title, text, note_type):
+
+    # parse the search tags, if there are any
+    search_tags = re.search("^Search Tags:.*$", text)
+    if search_tags:
+        search_tags = search_tags[0].split('#')
+        if len(search_tags) > 1:
+            search_tags = search_tags[1:]
+            search_tags = [x.strip() for x in search_tags]        
+        else:
+            search_tags = []
+    else:
+        search_tags = []
+
+    # clean the text a bit so that it's more useful for the model.
+    # if we always have "Primary Category", "Secondary Category", "Search Tags", etc at the top,
+    # then the document embeddings will all end up more similar than they should.
+    # also, during RAG, the model isn't getting the note titles, so add them in.
+
+    cleaned_text = re.sub(r'^Primary Categories:.*\n?', '', text, flags=re.MULTILINE)
+    cleaned_text = re.sub(r'^Secondary Categories:.*\n?', '', cleaned_text, flags=re.MULTILINE)
+    cleaned_text = re.sub(r'^Search Tags:.*\n?', '', cleaned_text, flags=re.MULTILINE)
+    cleaned_text = f"# {title}\n" + cleaned_text
+    
     embedding = emb.embed_documents([
-        text
+        cleaned_text
     ])[0]
 
     query="""
         CREATE (note:Note { 
             title: $title,
             note_type: $note_type,
-            text: $text,
+            original_text: $original_text,
+            text: $cleaned_text,
+            search_tags: $search_tags,
             embedding: $embedding
         })"""
-    gdb.execute_query(query, title=title, note_type=note_type, text=text, embedding=embedding)
+    gdb.execute_query(query, title=title, note_type=note_type, cleaned_text=cleaned_text, original_text=text, search_tags=search_tags, embedding=embedding)
     print(f"Uploaded - Title: {title}, note_type: {note_type}")
 
 def create_links(gdb: GraphDatabase):
@@ -97,7 +122,8 @@ def create_links(gdb: GraphDatabase):
     titles = [x['title'] for x in result[0]]
 
     for title in titles:
-        query = "MATCH (n:Note) WHERE n.title = $title RETURN n.text as text"
+        # get the original text (before we delete the primary and secondary category links)
+        query = "MATCH (n:Note) WHERE n.title = $title RETURN n.original_text as text"
         result = gdb.execute_query(query, title=title)
         text = result[0][0]['text']
     
